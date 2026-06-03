@@ -1,41 +1,62 @@
-#include <vector>
+#ifndef TREE_HPP
+#define TREE_HPP
+
 #include <iostream>
+#include <vector>
+#include <string>
+#include <stdexcept>
+
+using namespace std;
+
+struct XmlData {
+    string tag;
+    string text;
+};
 
 class Tree {
-private:
+public:
     struct Node {
-        int data;
+        XmlData data;
         Node* parent;
-        std::vector<Node*> children;
+        vector<Node*> children;
 
-        Node(int value, Node* p = nullptr);
+        Node(string tag, string text = "", Node* p = nullptr);
     };
 
+private:
     Node* rootNode;
     int treeSize;
-    int k;
 
-    void preOrder(Node* node, std::vector<int>& result);
-    void postOrder(Node* node, std::vector<int>& result);
-    void deleteSubtree(Node* node); //si se borra un nodo, se borran todos sus hijos y luego ese nodo.
+    void deleteSubtree(Node* node);
+    int countSubtree(Node* node);
+
+    void listarRec(Node* node);
+    void precursoresRec(Node* node);
+
+    bool isMainBook(Node* node);
+    bool shouldDeleteByRating(Node* book, double r);
+    bool isPrecursor(Node* book);
+
+    int toInt(string value);
+    double toDouble(string value);
 
 public:
-    Tree(int k);
+    Tree();
+    ~Tree();
 
     bool isEmpty();
     int size();
 
-    int root();
+    Node* root();
 
-    int parent(int value);
-    std::vector<int> children(int value);
+    Node* insert(Node* parent, string tag, string text = "");
 
-    bool insert(int parentValue, int value);
-    bool remove(int value);
-    
-    Node* search(Node* node, int value);
+    Node* firstChild(Node* node, string tag);
+    string childText(Node* node, string tag);
 
-    std::vector<int> preOrder();
-    std::vector<int> postOrder();
-    std::vector<int> inOrder();
+    void listar();
+    void borrar_ratings(double r);
+    void precursores();
 };
+
+#endif

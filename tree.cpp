@@ -1,157 +1,218 @@
 #include "tree.hpp"
 #include <algorithm>
-#include <functional>
 
-// Node
-Tree::Node::Node(int value, Node* p) {
-    data = value;
+Tree::Node::Node(string tag, string text, Node* p) {
+    data.tag = tag;
+    data.text = text;
     parent = p;
 }
 
-// Constructor
-Tree::Tree(int k) {
-    this->k = k;
-    rootNode = nullptr;
-    treeSize = 0;
+Tree::Tree() {
+    rootNode = new Node("GoodReads");
+    treeSize = 1;
 }
 
-bool Tree::isEmpty() {
+Tree::~Tree() {
+    deleteSubtree(rootNode);
+}
+
+bool Tree::isEmpty(){
     return treeSize == 0;
 }
 
-int Tree::size() {
+int Tree::size(){
     return treeSize;
 }
 
-int Tree::root() {
-    if (!rootNode) throw std::runtime_error("Árbol vacío");
-    return rootNode->data;
+Tree::Node* Tree::root(){
+    return rootNode;
 }
 
-Tree::Node* Tree::search(Node* node, int value) {
-    if (!node) return nullptr;
-    if (node->data == value) return node;
-
-    for (auto child : node->children) {
-        Node* found = search(child, value);
-        if (found) return found;
-    }
-    return nullptr;
-}
-
-bool Tree::insert(int parentValue, int value) {
-    if (!rootNode) {
-        rootNode = new Node(value);
-        treeSize++;
-        return true;
+Tree::Node* Tree::insert(Node* parent, string tag, string text) {
+    if (parent == nullptr) {
+        return nullptr;
     }
 
-    Node* parentNode = search(rootNode, parentValue);
-    if (!parentNode) return false;
-
-    if ((int)parentNode->children.size() >= k) return false;
-
-    Node* newNode = new Node(value, parentNode);
-    parentNode->children.push_back(newNode);
+    Node* newNode = new Node(tag, text, parent);
+    parent->children.push_back(newNode);
     treeSize++;
-    return true;
-}
 
-int Tree::parent(int value) {
-    Node* node = search(rootNode, value);
-    if (!node || !node->parent)
-        throw std::runtime_error("No tiene padre");
-
-    return node->parent->data;
-}
-
-std::vector<int> Tree::children(int value) {
-    Node* node = search(rootNode, value);
-    std::vector<int> result;
-
-    if (!node) return result;
-
-    for (auto child : node->children)
-        result.push_back(child->data);
-
-    return result;
+    return newNode;
 }
 
 void Tree::deleteSubtree(Node* node) {
-    if (!node) return;
-    for (auto child : node->children)
+    if (node == nullptr) {
+        return;
+    }
+
+    for (Node* child : node->children) {
         deleteSubtree(child);
+    }
+
     delete node;
 }
 
-bool Tree::remove(int value) {
-    Node* node = search(rootNode, value);
-    if (!node) return false;
-
-    if (node == rootNode) {
-        deleteSubtree(rootNode);
-        rootNode = nullptr;
-        treeSize = 0;
-        return true;
+int Tree::countSubtree(Node* node) {
+    if (node == nullptr) {
+        return 0;
     }
 
-    Node* parent = node->parent;
-    auto& siblings = parent->children;
+    int count = 1;
 
-    siblings.erase(
-        std::remove(siblings.begin(), siblings.end(), node),
-        siblings.end()
-    );
+    for (Node* child : node->children) {
+        count += countSubtree(child);
+    }
 
-    deleteSubtree(node);
-    treeSize--;
+    return count;
+}
+
+Tree::Node* Tree::firstChild(Node* node, string tag){
+    if (node == nullptr) {
+        return nullptr;
+    }
+
+    for (Node* child : node->children) {
+        if (child->data.tag == tag) {
+            return child;
+        }
+    }
+
+    return nullptr;
+}
+
+string Tree::childText(Node* node, string tag){
+    Node* child = firstChild(node, tag);
+
+    if (child == nullptr) {
+        return "";
+    }
+
+    return child->data.text;
+}
+
+int Tree::toInt(string value){
+    if (value == "") {
+        return -1;
+    }
+
+    try {
+        return stoi(value);
+    } catch (...) {
+        return -1;
+    }
+}
+
+double Tree::toDouble(string value){
+    if (value == "") {
+        return -1.0;
+    }
+
+    try {
+        return stod(value);
+    } catch (...) {
+        return -1.0;
+    }
+}
+
+bool Tree::isMainBook(Node* node){
+    return node != nullptr &&
+           node->data.tag == "book" &&
+           node->parent == rootNode;
+}
+
+void Tree::listar(){
+    listarRec(rootNode);
+}
+
+void Tree::listarRec(Node* node){
+    if (node == nullptr) {
+        return;
+    }
+
+    if (isMainBook(node)) {
+        cout << childText(node, "id") << endl;
+    }
+
+    for (Node* child : node->children) {
+        listarRec(child);
+    }
+}
+
+bool Tree::shouldDeleteByRating(Node* book, double r){
+    if (!isMainBook(book)) {
+        return false;
+    }
+
+    double rating = toDouble(childText(book, "average_rating"));
+
+    if (rating < 0) {
+        return false;
+    }
+
+    return rating <= r;
+}
+
+void Tree::borrar_ratings(double r) {
+    vector<Node*>& books = rootNode->children;
+
+    auto it = books.begin();
+
+    while (it != books.end()) {
+        Node* book = *it;
+
+        if (shouldDeleteByRating(book, r)) {
+            int deletedNodes = countSubtree(book);
+            deleteSubtree(book);
+            it = books.erase(it);
+            treeSize -= deletedNodes;
+        } else {
+            ++it;
+        }
+    }
+}
+
+void Tree::precursores(){
+    precursoresRec(rootNode);
+}
+
+void Tree::precursoresRec(Node* node){
+    if (node == nullptr) {
+        return;
+    }
+
+    if (isMainBook(node) && isPrecursor(node)) {
+        cout << childText(node, "id") << endl;
+    }
+
+    for (Node* child : node->children) {
+        precursoresRec(child);
+    }
+}
+
+bool Tree::isPrecursor(Node* book){
+    int bookYear = toInt(childText(book, "publication_year"));
+
+    if (bookYear < 0) {
+        return false;
+    }
+
+    Node* similarBooks = firstChild(book, "similar_books");
+
+    if (similarBooks == nullptr || similarBooks->children.empty()) {
+        return false;
+    }
+
+    for (Node* similarBook : similarBooks->children) {
+        int similarYear = toInt(childText(similarBook, "publication_year"));
+
+        if (similarYear < 0) {
+            return false;
+        }
+
+        if (similarYear <= bookYear) {
+            return false;
+        }
+    }
+
     return true;
-}
-
-
-void Tree::preOrder(Node* node, std::vector<int>& result) {
-    if (!node) return;
-    result.push_back(node->data);
-    for (auto child : node->children)
-        preOrder(child, result);
-}
-
-std::vector<int> Tree::preOrder() {
-    std::vector<int> result;
-    preOrder(rootNode, result);
-    return result;
-}
-
-void Tree::postOrder(Node* node, std::vector<int>& result) {
-    if (!node) return;
-    for (auto child : node->children)
-        postOrder(child, result);
-    result.push_back(node->data);
-}
-
-std::vector<int> Tree::postOrder() {
-    std::vector<int> result;
-    postOrder(rootNode, result);
-    return result;
-}
-
-std::vector<int> Tree::inOrder() {
-    std::vector<int> result;
-
-    std::function<void(Node*)> inorder = [&](Node* node) {
-        if (!node) return;
-
-        int half = node->children.size() / 2;
-
-        for (int i = 0; i < half; i++)
-            inorder(node->children[i]);
-
-        result.push_back(node->data);
-
-        for (size_t i = half; i < node->children.size(); i++)
-            inorder(node->children[i]);
-    };
-
-    inorder(rootNode);
-    return result;
 }
